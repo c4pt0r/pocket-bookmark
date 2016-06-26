@@ -1,6 +1,6 @@
 import json
 import config
-from peewee import Model, CharField, DateTimeField
+from peewee import Model, CharField, DateTimeField 
 from peewee import SqliteDatabase, MySQLDatabase
 
 db = None
@@ -30,6 +30,7 @@ class User(JsonModel):
         database = db
     name = CharField(unique = True)
     token = CharField()
+    last_sync = DateTimeField()
 
 class Item(JsonModel):
     class Meta:

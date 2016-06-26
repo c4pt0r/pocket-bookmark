@@ -3,8 +3,9 @@ import model
 import config
 import sync
 
+from functools import wraps
 from flask import Flask
-from flask import url_for,redirect, session
+from flask import url_for, redirect, session 
 from pocket import Pocket, APIError
 from log import logger
 
@@ -12,15 +13,30 @@ app = Flask(__name__)
 app.debug = config.DEBUG
 app.secret_key = config.SECRET
 
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        username = session.get('username')
+        access_token = session.get('access_token')
+        if username is None or access_token is None:
+            return redirect('/auth')
+        return f(*args, **kwargs)
+    return decorated_function
+
 @app.route('/')
+@login_required
 def index():
-    username = session.get('username')
-    access_token = session.get('access_token')
-    if username is None or access_token is None:
-        return redirect('/auth')
-    
-    items = model.Item.select().where(model.Item.username == username)
+    items = model.Item.select().where(model.Item.username ==
+            session.get('username'))
     return json.dumps([item.jsonify() for item in items])
+
+@app.route('/resync')
+@login_required
+def resync():
+    username = session.get('username')
+    token = session.get('access_token')
+    sync.pool.add_task(sync.sync_all_for_user, username, token)
+    return "task posted"
 
 @app.route('/auth')
 def auth():
@@ -56,4 +72,4 @@ def auth_callback():
     return session['username'] + " " + session['access_token']
 
 if __name__ == '__main__':
-    app.run('0.0.0.0', 9999)
+    app.run(config.HOST, config.PORT)
